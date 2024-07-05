@@ -22,6 +22,29 @@
     <link href="{% static 'css/style.css' %}" rel="stylesheet">
 
     <style>
+        @media (max-width: 600px) {
+            #back_dash:hover {
+                color: #866fad;
+                background-color: var(--bs-btn-hover-bg);
+                border-color: var(--bs-btn-hover-border-color);
+            }
+
+            #exam_name {
+                font-size: 40px;
+                position: relative;
+                right: 15px;
+                bottom: 10px;
+            }
+
+            #exam_question {
+                position: relative;
+                left: 3%;
+            }
+            #sect_id {
+            top: 0px;
+        }
+        }
+
         .grade.low {
             color: red;
         }
@@ -54,7 +77,39 @@
             background-color: #f1a091 !important;
             border-color: #f1a091;
             font-size: 130%;
-            }
+        }
+
+        #exam_name {
+            color: #f1a091;
+        }
+
+        #teah_name {
+            color: #8c5396;
+            font-size: 20px;
+            position: relative;
+            right: 10px;
+        }
+
+        #date_id {
+            font-size: 20px;
+        }
+
+        #your_grade {
+            font-size: 20px;
+        }
+
+        #grade_degree {
+            font-size: 20px;
+        }
+
+        #sect_id {
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: transparent;
+            padding: 0 0;
+            margin-top: 3%;
+            position: relative;
+            /* top: 10px; */
+        }
     </style>
 </head>
 
@@ -88,15 +143,14 @@
     </header>
 
 
-    <section class="align-items-center"
-        style="font-family: Arial, Helvetica, sans-serif;background-color: transparent; padding: 0 0;margin-top: 3%;">
+    <section class="align-items-center">
         <div class="container">
             <div class="justify-content-center" data-aos="fade-up" data-aos-delay="200">
                 <div class="card text-black" style="padding: 20px 20px;">
                     <div class="section-title d-flex justify-content-between" style="padding-bottom: 1%;">
                         <p></p>
-                        <h1 style="color:  #8c5396;">{{ exam.name }}</h1>
-                        <p style="font:bold;color:  #8c5396;">Teacher: {{ exam.teacher.first_name }} {{ exam.teacher.last_name }}</p>
+                        <h1 id="exam_name">{{ exam.name }}</h1>
+                        <p id="teah_name">Teacher: {{ exam.teacher.first_name }} {{ exam.teacher.last_name }}</p>
                     </div>
                     <div class="form-group exam-question" style="font-size: 130%;">
                         <strong for="id_question">Question:</strong>
@@ -115,18 +169,18 @@
                             disabled>{{ exam.model_answer }}</textarea>
 
                     </div>
-                    <p><strong>Your Grade :</strong>
-                        <span class="grade" data-grade='{{ submission.score }}'>{{submission.score }}</span>
+                    <p><strong id="your_grade">Your Grade :</strong>
+                        <span class="grade" id="grade_degree" data-grade='{{ submission.score }}'>{{submission.score}}</span>
                     </p>
                     {% else %}
                     <p><strong>Not graded yet.</strong></p>
                     {% endif %}
-                    <p><strong>Date Taken: </strong> {{ submission.time_submitted|date:"D,d M Y" }}</p>
+                    <p><strong id="date_id">Date Taken: </strong> {{ submission.time_submitted|date:"D,d M Y" }}</p>
                     {% else %}
                     <p>You have not submitted this exam.</p>
                     {% endif %}
                     <div style="text-align: right;font-size: 100%;">
-                        <a href="{% url 'student_dashboard' %}" class="btn btn-success">←
+                        <a href="{% url 'student_dashboard' %}" class="btn btn-success" id="back_dash">←
                             Back to Dashboard
                         </a>
                     </div>
