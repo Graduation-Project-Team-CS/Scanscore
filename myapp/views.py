@@ -26,6 +26,7 @@ from django.db.models import F
 import decimal
 from django.conf import settings
 
+
 def index(request):
     return render(request, 'myapp/index.html')
 
@@ -333,20 +334,7 @@ def view_grades(request, exam_id):
 
 
 
-@login_required
-def modify_grade(request, submission_id):
-    if request.method == 'POST':
-        submission = get_object_or_404(ExamSubmission, id=submission_id, exam__teacher=request.user)
-        exam = submission.exam
-        submissions = ExamSubmission.objects.filter(exam=exam)
-        new_grade = request.POST.get('new_grade')
-        submission.score = decimal.Decimal(new_grade)
-        print(f"Before saving: {submission.score}")
-        submission.save()
-        print(f"After saving: {submission.score}")
-        messages.success(request, "Grade updated successfully.")
-        return render(request, 'myapp/teacher/view_grades.html', {'submissions': submissions, 'exam': exam})
-    return HttpResponseForbidden("Invalid request")
+
 
 
 @login_required
@@ -397,35 +385,32 @@ def generate_answer(request):
 @login_required
 def upload_images(request, exam_id):
     if request.method == 'POST':
-        # processor, model = load_model()
         model_choice = request.POST.get('model')
-        # Choose moodel correct spelling mistakes or not
         edit = 'true' if model_choice == 'model1' else 'false'
         print("Edit:", edit)
-        
+
+
         uploaded_files = request.FILES.getlist('images')
-        max_files = getattr(settings, 'DATA_UPLOAD_MAX_NUMBER_FILES', 100)
-        if len(uploaded_files) > max_files:
-            messages.error(request, f'You can upload a maximum of {max_files} files at a time.')
+        print("Number of uploaded files:", len(uploaded_files))
+
+        if len(uploaded_files) > 25:
+            messages.error(request, f'You can upload a maximum of 25 files at a time.')
             return redirect('upload_images', exam_id=exam_id)
-        
+
+        # Processing logic for OCR models goes here
         for uploaded_file in uploaded_files:
-            if edit=='false':
-                #### First, use verify model ####
-                print("Now trying Verify model and edit= ",edit)
+            if edit == 'false':
                 try:
                     fs = FileSystemStorage()
                     filename = fs.save(uploaded_file.name, uploaded_file)
                     file_path = fs.path(filename)
                     print("FILE PATH", file_path)
-                        
-                    #Verify model
+
                     student_id, student_name, extracted_answer = OCR_Verify_Model(file_path)
                     print("Student ID:", student_id)
                     print("Student Name:", student_name)
                     print("Extracted Answer:", extracted_answer)
 
-                    # Save the results
                     ExamSubmissionOCR.objects.create(
                         exam_id=exam_id,
                         teacher=request.user,
@@ -433,24 +418,21 @@ def upload_images(request, exam_id):
                         student_name=student_name,
                         image=uploaded_file,
                         extracted_text=extracted_answer,
-                        score=0, #Not graded yet
+                        score=0,
                     )
                 except Exception as e:
-                ##### Use OCR-Space model as a backup model if edit='false
                     print('Verify model failed, trying OCR Space model...')
                     try:
                         fs = FileSystemStorage()
                         filename = fs.save(uploaded_file.name, uploaded_file)
                         file_path = fs.path(filename)
                         print("FILE PATH", file_path)
-                        #OCR Space model
-                        print("Now trying OCR Space model and edit= ",edit)
+
                         student_id, student_name, extracted_answer = OCR_Space_Model(file_path)
                         print("Student ID:", student_id)
                         print("Student Name:", student_name)
                         print("Extracted Answer:", extracted_answer)
 
-                        # Save the results
                         ExamSubmissionOCR.objects.create(
                             exam_id=exam_id,
                             teacher=request.user,
@@ -458,30 +440,26 @@ def upload_images(request, exam_id):
                             student_name=student_name,
                             image=uploaded_file,
                             extracted_text=extracted_answer,
-                            score=0, #Not graded yet
+                            score=0,
                         )
 
                     except Exception as e:
                         messages.error(request, 'This service is not available right now, maybe a problem with your internet connection, please try again in a few minutes.')
-                        print(f"Error processing file {uploaded_file.name}: {e}")  # Debugging
+                        print(f"Error processing file {uploaded_file.name}: {e}")
                         return redirect('upload_images', exam_id=exam_id)
-        
-            else: #edit='true'
-                #### Use Gemini model ####
-                print("Now trying Gemini model and edit= ",edit)
+            else:
                 try:
                     fs = FileSystemStorage()
                     filename = fs.save(uploaded_file.name, uploaded_file)
                     file_path = fs.path(filename)
                     print("FILE PATH", file_path)
-                    #Gemini model
-                    student_id, student_name, extracted_answer = OCR_Gemini_Model(file_path,edit)
+
+                    student_id, student_name, extracted_answer = OCR_Gemini_Model(file_path, edit)
                     print("Hello from view upload_images from Gemini model")
                     print("Student ID:", student_id)
                     print("Student Name:", student_name)
                     print("Extracted Answer:", extracted_answer)
 
-                    # Save the results
                     ExamSubmissionOCR.objects.create(
                         exam_id=exam_id,
                         teacher=request.user,
@@ -489,19 +467,26 @@ def upload_images(request, exam_id):
                         student_name=student_name,
                         image=uploaded_file,
                         extracted_text=extracted_answer,
-                        score=0, #Not graded yet
+                        score=0,
                     )
                 except Exception as e:
                     messages.error(request, 'Model1 is not available right now, please try again later or use Model2.')
                     print(f"Error processing file {uploaded_file.name}: {e}")
                     return redirect('upload_images', exam_id=exam_id)
 
-
         messages.success(request, "Images uploaded and processed successfully.")
         return redirect('view_submissions_ocr', exam_id=exam_id)
-    
+
+
     exam = get_object_or_404(Exam, pk=exam_id, teacher=request.user)
+    if ExamSubmissionOCR.objects.filter(exam=exam).exists():
+        submissions = ExamSubmissionOCR.objects.filter(exam=exam)
+        return render(request, 'myapp/teacher/upload_images.html', {'exam_id': exam_id, 'exam': exam, 'submissions': submissions})
+
     return render(request, 'myapp/teacher/upload_images.html', {'exam_id': exam_id, 'exam': exam})
+
+
+
 
 
 @login_required
@@ -514,38 +499,52 @@ def view_submissions_ocr(request, exam_id):
     })
 
 
-
-
 @login_required
 def view_grades_ocr(request, exam_id):
     exam = get_object_or_404(Exam, pk=exam_id, teacher=request.user)
-    exam.ocr_graded = True
-    exam.save()
-    print("now set ocr_graded to", exam.ocr_graded)
-    if not exam.ocr_graded:
-        graded_submissions = StartGradingOCR(exam_id)  # This will update and return graded submissions
+    submissions = ExamSubmissionOCR.objects.filter(exam=exam)
+    is_ocr_graded = all(submission.is_graded for submission in submissions)
+    if not is_ocr_graded:
+        graded_submissions = StartGradingOCR(exam_id)
+        for submission in graded_submissions:
+            if submission.score < 0:
+                submission.score = 0.000
+        return render(request, 'myapp/teacher/view_grades_ocr.html', {'submissions': graded_submissions, 'exam': exam})
     else:
-        graded_submissions = ExamSubmissionOCR.objects.filter(exam=exam)
-    for submission in graded_submissions:
-        if submission.score < 0:
-            submission.score = 0.000
-        print(f"Submission ID: {submission.id} - Student ID: {submission.student_id} - Score: {submission.score}")
-    return render(request, 'myapp/teacher/view_grades_ocr.html', {'submissions': graded_submissions, 'exam': exam})
+        return render(request, 'myapp/teacher/view_grades_ocr.html', {'submissions': submissions, 'exam': exam})
 
+
+
+@login_required
+def modify_grade(request, submission_id):
+    if request.method == 'POST':
+        submission = get_object_or_404(ExamSubmission, id=submission_id, exam__teacher=request.user)
+        exam = submission.exam
+        submissions = ExamSubmission.objects.filter(exam=exam) #To send all the submissions to the template after the grade is modified
+        new_grade = request.POST.get('new_grade')
+        submission.score = decimal.Decimal(new_grade)
+        print(f"Before saving: {submission.score}")
+        submission.save()
+        print(f"After saving: {submission.score}")
+        messages.success(request, "Grade updated successfully.")
+        return render(request, 'myapp/teacher/view_grades.html', {'submissions': submissions, 'exam': exam})
+    return HttpResponseForbidden("Invalid request")
 
 @login_required
 def modify_grade_ocr(request, submission_id):
     if request.method == 'POST':
-        new_grade = request.POST.get('new_grade')
-        submissions=ExamSubmissionOCR.objects.filter(exam__teacher=request.user)
-        submission = submissions.get(id=submission_id) #submission that will update grade
-        print("Before saving: ", submission.score)
-        submission.score = decimal.Decimal(new_grade)
+        submission= get_object_or_404(ExamSubmissionOCR, id=submission_id, exam__teacher=request.user)
+        exam= submission.exam
+        submissions= ExamSubmissionOCR.objects.filter(exam=exam) #To send all the submissions to the template after the grade is modified
+        new_grade= request.POST.get('new_grade')
+        submission.score= decimal.Decimal(new_grade)
+        print(f"Before saving: {submission.score}")
         submission.save()
-        print("After saving: ", submission.score)
+        print(f"After saving: {submission.score}")
         messages.success(request, "Grade updated successfully.")
-        return render(request, 'myapp/teacher/view_grades_ocr.html', {'submissions': submissions})
+        return render(request, 'myapp/teacher/view_grades_ocr.html', {'submissions': submissions, 'exam': exam})
     return HttpResponseForbidden("Invalid request")
+
 
 @login_required
 def export_grades_ocr(request, exam_id):
@@ -553,11 +552,6 @@ def export_grades_ocr(request, exam_id):
     print("Exporting grades for exam:", exam.name ,"With ID:", exam_id)
     submissions = ExamSubmissionOCR.objects.filter(exam_id=exam_id).values('student_id', 'score')
     return export_ocr_grades_to_excel(exam_id)
-
-
-
-
-
 
 @login_required
 def increase_grades(request, exam_id):
@@ -590,7 +584,6 @@ def round_grades(request, exam_id):
 def increase_grades_ocr(request, exam_id):
     exam = get_object_or_404(Exam, pk=exam_id)
     increase_by = decimal.Decimal(request.POST.get('increase_by', 0))
-    print("I'm now increasing all ocr grades by ", increase_by)
     submissions = ExamSubmissionOCR.objects.filter(exam=exam)
     for submission in submissions:
         new_score = submission.score + increase_by
