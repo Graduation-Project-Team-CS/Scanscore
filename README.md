@@ -12,8 +12,7 @@ ScanScore is a Django-powered platform transforming the educational assessment l
 - **Grading and Adjustments:** Options for teachers to manually modify AI-generated grades.
 - **Data Management:** Secure handling of all educational content and user data.
 
-## Contributing
+## Demo
+[View Design on Canva](https://www.canva.com/design/DAGpGfp7txM/mxvPKyUw5R17F5KSpLB21w/view?utm_content=DAGpGfp7txM&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h7769bfa547)
 
-
-## License
 
